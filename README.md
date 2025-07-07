@@ -95,6 +95,12 @@ This command will:
 
 ---
 
+## Test the service
+Website - https://transcribe-my-videos.vercel.app/
+***HAPPY TRANSCRIBING***
+
+---
+
 ## 📞 Support
 
 If you encounter any issues or have questions, feel free to [open an issue](https://github.com/Suuraw/Transcript-backend/issues) on the repository.
