@@ -97,6 +97,10 @@ This command will:
 
 ## Test the service
 Website - https://transcribe-my-videos.vercel.app/
+- ## Dev Access Credentials
+- ```
+  1234
+  ```
 ***HAPPY TRANSCRIBING***
 
 ---
