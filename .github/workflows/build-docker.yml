@@ -1,0 +1,19 @@
+name: Build and push image to Docker Hub
+
+on: [workflow_dispatch]
+
+jobs:
+  publish_images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        run: actions/checkout@v4
+
+      - name: Build docker image
+        run: docker build -t suuraw/transcript-backend:latest
+
+      - name: Login and push the image
+        run: |
+          docker login -u suuraw -p ${{secrets.DOCKER_ACCESS_TOKEN}}
+          docker push suuraw/transcript-backend:latest
