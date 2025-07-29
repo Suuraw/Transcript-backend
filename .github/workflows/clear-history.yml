@@ -1,0 +1,27 @@
+name: Clear history content from history.json
+
+on:
+  [workflow_dispatch]
+
+jobs:
+  clear_history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        run: actions/checkout@v4
+      
+      - name: Clear history content
+        run: : > history.json
+      
+      - name: Add changes and push
+        run: |
+          git config user.name "github-actions["bot"]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "clear history content before image publish"
+            git push origin main
+          fi
