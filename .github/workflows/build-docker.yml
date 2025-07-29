@@ -8,10 +8,10 @@ jobs:
 
     steps:
       - name: Checkout the code
-        run: actions/checkout@v4
+        uses: actions/checkout@v4
 
       - name: Build docker image
-        run: docker build -t suuraw/transcript-backend:latest
+        run: docker build . -t suuraw/transcript-backend:latest
 
       - name: Login and push the image
         run: |
