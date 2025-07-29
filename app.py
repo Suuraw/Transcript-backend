@@ -83,18 +83,47 @@ def fetch_video_title(video_id: str) -> str:
         logger.error(f"Failed to fetch title for {video_id}: {e}")
         return f"Video {video_id}"
 
-# Helper: Summarize transcript
-def summarize_transcript(chunks: list[dict]) -> str:
-    combined_content = "\n\n".join(chunk["content"] for chunk in chunks)
-    if not combined_content:
+def summarize_transcript(content) -> str:
+    """
+    Summarize content that can be either:
+    - A list of dictionaries with 'content' keys (from video transcripts)
+    - A plain string (from uploaded text)
+    - A list of strings
+    """
+    
+    # Handle different input types
+    if isinstance(content, str):
+        # Plain text input
+        combined_content = content
+    elif isinstance(content, list):
+        if not content:
+            return "No content to summarize."
+        
+        # Check if it's a list of dictionaries (transcript chunks)
+        if isinstance(content[0], dict):
+            # Extract content from chunks
+            combined_content = "\n\n".join(
+                chunk.get("content", "") for chunk in content 
+                if chunk.get("content")
+            )
+        else:
+            # List of strings
+            combined_content = "\n\n".join(str(item) for item in content)
+    else:
+        logger.error(f"Unsupported content type: {type(content)}")
+        return "Unsupported content format for summarization."
+    
+    # Check if we have any content after processing
+    if not combined_content or not combined_content.strip():
         return "No content to summarize."
-
+    
+    # Create the prompt
     prompt = (
-        "As a technical educator, summarize the following transcript into a detailed, structured summary for learners. "
+        "As a technical educator, summarize the following content into a detailed, structured summary for learners. "
         "Explain key concepts clearly and organize with sections or bullet points, focusing on educational value:\n\n"
         f"{combined_content}"
     )
-
+    
     try:
         start_time = datetime.now()
         response = client.models.generate_content(
@@ -106,6 +135,75 @@ def summarize_transcript(chunks: list[dict]) -> str:
     except Exception as e:
         logger.error(f"[Gemini API Error]: {e}")
         return "Failed to generate summary due to an internal error."
+
+
+# Alternative version with more specific handling
+def summarize_transcript_v2(content, content_type: str = "auto") -> str:
+    """
+    Enhanced version with explicit content type handling
+    
+    Args:
+        content: The content to summarize
+        content_type: "chunks", "text", or "auto" (default)
+    """
+    
+    if content_type == "auto":
+        # Auto-detect content type
+        if isinstance(content, str):
+            content_type = "text"
+        elif isinstance(content, list) and content and isinstance(content[0], dict):
+            content_type = "chunks"
+        elif isinstance(content, list):
+            content_type = "list"
+        else:
+            content_type = "unknown"
+    
+    # Process based on content type
+    if content_type == "text":
+        combined_content = content
+        source_info = "uploaded text"
+    elif content_type == "chunks":
+        if not content:
+            return "No transcript chunks to summarize."
+        combined_content = "\n\n".join(
+            chunk.get("content", "") for chunk in content 
+            if chunk.get("content")
+        )
+        source_info = "video transcript"
+    elif content_type == "list":
+        combined_content = "\n\n".join(str(item) for item in content)
+        source_info = "text list"
+    else:
+        logger.error(f"Unsupported content type: {type(content)}")
+        return "Unsupported content format for summarization."
+    
+    # Validate content
+    if not combined_content or not combined_content.strip():
+        return f"No content found in the provided {source_info}."
+    
+    # Log content info
+    word_count = len(combined_content.split())
+    logger.info(f"Summarizing {source_info} with approximately {word_count} words")
+    
+    # Create context-aware prompt
+    prompt = (
+        f"As a technical educator, summarize the following {source_info} into a detailed, structured summary for learners. "
+        "Explain key concepts clearly and organize with sections or bullet points, focusing on educational value:\n\n"
+        f"{combined_content}"
+    )
+    
+    try:
+        start_time = datetime.now()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Gemini API call completed in {duration:.2f} seconds")
+        return response.text
+    except Exception as e:
+        logger.error(f"[Gemini API Error]: {e}")
+        return f"Failed to generate summary for {source_info} due to an internal error."
 
 # Health check
 @app.get("/")
@@ -215,59 +313,87 @@ async def get_transcript(request: Request, background_tasks: BackgroundTasks, au
 
 # POST /summarize
 @app.post("/summarize")
-async def summarize_transcript_route(authorization: str = Header(None)):
+async def summarize_transcript_route(request: Request, authorization: str = Header(None)):
     global latest_video_id, latest_transcript
-    
+   
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
-
     token = authorization.split(" ")[1]
     if token != API_TOKEN:
         raise HTTPException(status_code=403, detail="Unauthorized access.")
-
-    try:
-        # Find latest transcript chunks
-        files = sorted(TRANSCRIPTS_DIR.glob("*.json"), key=os.path.getmtime, reverse=True)
-        if not files:
+   
+    body = await request.json()
+    isFile = body.get("isFile")
+    
+    if isFile:
+        # Handle direct text input
+        transcript_text = body.get("transcript")
+        if not transcript_text:
             return JSONResponse(
-                content={"success": False, "error": "No transcript files found."},
-                status_code=404
+                content={"success": False, "error": "Transcript text is required when isFile=true"},
+                status_code=400
             )
-
-        latest_file = files[0]
-        with open(latest_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        chunks = data.get("chunks", [])
         
-        # Generate summary using Gemini API
-        final_summary = summarize_transcript(chunks)
+        # Use the flexible summarize function with plain text
+        final_summary = summarize_transcript(transcript_text)
+        title = body.get("title", "User Provided Text")
         
-        # Fetch video title during summarization (since both are time-consuming)
-        title = "Unknown Video"
-        if latest_video_id:
-            logger.info(f"Fetching title for video: {latest_video_id}")
-            title = fetch_video_title(latest_video_id)
-            logger.info(f"Retrieved title: {title}")
-
-        # Clear the transcript folder
-        clear_transcript_folder()
-
-        # Update history with title and summary
-        if latest_video_id and latest_transcript:
-            update_history_with_title_and_summary(latest_video_id, title, final_summary, latest_transcript)
-
         return JSONResponse(
             content={"success": True, "summary": final_summary, "title": title},
             status_code=200
         )
-
+    
+    try:
+        # Handle YouTube video transcripts
+        # Try to find transcript files first
+        files = sorted(TRANSCRIPTS_DIR.glob("*.json"), key=os.path.getmtime, reverse=True)
+        
+        if files:
+            # Use file-based transcript
+            latest_file = files[0]
+            with open(latest_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            chunks = data.get("chunks", [])
+            video_id_from_file = data.get("video_id", latest_video_id)
+        elif latest_transcript:
+            # Fallback to in-memory transcript
+            chunks = latest_transcript
+            video_id_from_file = latest_video_id
+        else:
+            return JSONResponse(
+                content={"success": False, "error": "No transcript found. Please process a video transcript first using the /transcript endpoint."},
+                status_code=400
+            )
+       
+        # Use the flexible summarize function with chunks
+        final_summary = summarize_transcript(chunks)
+       
+        # Fetch video title
+        title = "Unknown Video"
+        if video_id_from_file:
+            logger.info(f"Fetching title for video: {video_id_from_file}")
+            title = fetch_video_title(video_id_from_file)
+            logger.info(f"Retrieved title: {title}")
+            
+        # Clear the transcript folder
+        clear_transcript_folder()
+        
+        # Update history with title and summary
+        if video_id_from_file and chunks:
+            update_history_with_title_and_summary(video_id_from_file, title, final_summary, chunks)
+            
+        return JSONResponse(
+            content={"success": True, "summary": final_summary, "title": title},
+            status_code=200
+        )
+        
     except Exception as e:
         logger.error(f"[Summarize Error]: {e}")
         return JSONResponse(
             content={"success": False, "error": str(e)},
             status_code=500
         )
+
 
 from fastapi import Body  # Add this to existing imports
 from questionnaire_generator import generate_questionnaire  # 👈 Import your logic
