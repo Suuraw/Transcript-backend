@@ -6,17 +6,18 @@ A lightweight backend service to **fetch YouTube video transcripts** and **gener
 
 ## 📈 Performance Highlights
 
-- ✅ **Fast Transcript Fetching:** ~1.66 seconds per request  
-- ✅ **Efficient Summarization:** ~55 seconds for a 4-hour long video  
+- ✅ **Fast Transcript Fetching:** ~1.66 seconds per request
+- ✅ **Efficient Summarization:** ~55 seconds for a 4-hour long video
 
 ---
 
 ## ⚠️ Limitations
 
--  **Not Suitable for Production Deployment:** YouTube blocks IP addresses from most cloud providers.  
--  **Works Only with Residential IPs:** The transcript fetching works reliably only when hosted on a machine with a residential IP (e.g., home internet).
+- **Not Suitable for Production Deployment:** YouTube blocks IP addresses from most cloud providers.
+- **Works Only with Residential IPs:** The transcript fetching works reliably only when hosted on a machine with a residential IP (e.g., home internet).
 
 ---
+
 ## Prerequisites
 
 - **Docker** must be installed on your machine.
@@ -39,7 +40,7 @@ To ensure Docker starts automatically and runs containers in the background with
 
 ## Setup Instructions
 
-### Step 1: Clone the Repository
+### Step 1: Clone the Repository _(if building from source)_
 
 ```bash
 git clone https://github.com/Suuraw/Transcript-backend
@@ -58,7 +59,7 @@ cd Transcript-backend
 
 ### Step 3: Create a `.env` File
 
-Create a `.env` file in the root of the project directory and add the following content:
+In the **same directory** where you’ll run Docker from, create a `.env` file with the following content:
 
 ```env
 API_TOKEN=mytranscripts
@@ -69,15 +70,34 @@ GEMINI_API_KEY=YOUR_API_KEY
 
 ---
 
-### 🐳 Step 4: Build & Run the Docker Container
+## 🐳 Option 1: Pull & Run Prebuilt Docker Image (Recommended)
 
-#### 1. Build the Docker Image
+> ✅ **Make sure you're inside the directory where the `.env` file is located** before running the following commands.
+
+```bash
+docker pull suuraw/transcript-backend:latest
+```
+
+Then run:
+
+```bash
+docker run -d \
+  -p 8000:8000 \
+  --name transcript-container \
+  --env-file .env \
+  --restart unless-stopped \
+  suuraw/transcript-backend:latest
+```
+
+---
+
+## 🛠 Option 2: Build Docker Image Locally
 
 ```bash
 docker build -t transcript-image .
 ```
 
-#### 2. Run the Container in Detached Mode
+Then run:
 
 ```bash
 docker run -d \
@@ -88,23 +108,21 @@ docker run -d \
   transcript-image
 ```
 
-This command will:
-- Bind the container's port `8000` to your local port `8000`
-- Load environment variables from `.env`
-- Ensure the service restarts automatically on failure or reboot
-
 ---
 
-## Test the service
-Website - https://www.watch2learn.app/
-- ## Dev Access Credentials
-- ```
+## 🔍 Test the Service
+
+**Website** – [https://www.watch2learn.app/](https://www.watch2learn.app/)
+
+- ### 🧪 Dev Access Credentials:
+  ```
   1234
   ```
-***HAPPY TRANSCRIBING***
 
 ---
 
-## 📞 Support
+## Support
 
 If you encounter any issues or have questions, feel free to [open an issue](https://github.com/Suuraw/Transcript-backend/issues) on the repository.
+
+**_HAPPY LEARNING_**
