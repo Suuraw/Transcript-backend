@@ -1,7 +1,6 @@
 name: Clear history content from history.json
 
-on:
-  [workflow_dispatch]
+on: [workflow_dispatch]
 
 jobs:
   clear_history:
@@ -10,10 +9,11 @@ jobs:
     steps:
       - name: Checkout the code
         run: actions/checkout@v4
-      
+
       - name: Clear history content
-        run: : > history.json
-      
+        run: |
+          : > history.json
+
       - name: Add changes and push
         run: |
           git config user.name "github-actions["bot"]"
