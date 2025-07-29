@@ -12,7 +12,8 @@ jobs:
 
       - name: Clear history content
         run: |
-          : > history.json
+          rm history.json
+          touch history.json
 
       - name: Add changes and push
         run: |
